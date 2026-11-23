@@ -1,0 +1,62 @@
+name: iOS ARM64 SDL2 Build
+
+on:
+  push:
+    branches:
+      - ios-port
+    paths:
+      - '.github/workflows/ios-sdl2.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-sdl2:
+    runs-on: macos-26
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download official SDL2 source
+        run: |
+          git clone --depth 1 \
+            --branch release-2.30.0 \
+            https://github.com/libsdl-org/SDL.git \
+            build/sdl2-source
+
+      - name: Configure SDL2 for iPhone ARM64
+        run: |
+          cmake -S build/sdl2-source \
+            -B build/sdl2-ios \
+            -G Xcode \
+            -DCMAKE_SYSTEM_NAME=iOS \
+            -DCMAKE_OSX_SYSROOT=iphoneos \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=17.0 \
+            -DSDL_STATIC=ON \
+            -DSDL_SHARED=OFF \
+            -DSDL_TEST=OFF
+
+      - name: Compile SDL2
+        run: |
+          cmake --build build/sdl2-ios \
+            --config Release \
+            --target SDL2-static \
+            --parallel 4
+
+      - name: Verify ARM64 library
+        run: |
+          find build/sdl2-ios -name 'libSDL2*.a' -print
+          LIB="$(find build/sdl2-ios -name 'libSDL2*.a' -print -quit)"
+          test -n "$LIB"
+          xcrun lipo -info "$LIB"
+          echo "SDL2 iOS ARM64 static library compiled"
+
+      - name: Upload SDL2 build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SDL2-iOS-ARM64
+          path: build/sdl2-ios/Release-iphoneos/libSDL2.a
+          if-no-files-found: warn
