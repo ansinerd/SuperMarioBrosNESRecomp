@@ -1,0 +1,54 @@
+﻿name: iOS ARM64 Compiler Probe
+
+on:
+  push:
+    branches:
+      - ios-port
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  arm64-ios:
+    runs-on: macos-26
+
+    steps:
+      - name: Checkout repository and submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Show Apple toolchain
+        run: |
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-path
+
+      - name: Check NES core against iOS ARM64
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
+          SRC="nesrecomp/runner/cyc"
+
+          for file in \
+            cpu6502.c \
+            cpu6502_interp.c \
+            hw_machine.c \
+            hw_mapper.c \
+            hw_ppu.c \
+            hw_apu.c \
+            hw_palette.c \
+            cyc_run.c
+          do
+            echo "Checking $file"
+            xcrun --sdk iphoneos clang \
+              -target arm64-apple-ios17.0 \
+              -isysroot "$SDK" \
+              -std=c11 \
+              -fsyntax-only \
+              -DNESRECOMP_PPU_HLE=1 \
+              -I"$SRC" \
+              -I"nesrecomp/runner/include" \
+              "$SRC/$file"
+          done
