@@ -1,0 +1,46 @@
+name: iOS ARM64 Full Core Build
+
+on:
+  push:
+    branches:
+      - ios-port
+    paths:
+      - 'ios/core-arm64/**'
+      - '.github/workflows/ios-arm64-core.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ios-core:
+    runs-on: macos-26
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Show Apple toolchain
+        run: |
+          xcodebuild -version
+          cmake --version
+          xcrun --sdk iphoneos --show-sdk-path
+
+      - name: Configure iOS ARM64 core
+        run: |
+          cmake -S ios/core-arm64 \
+            -B build/ios-core-arm64 \
+            -G Xcode \
+            -DCMAKE_SYSTEM_NAME=iOS \
+            -DCMAKE_OSX_SYSROOT=iphoneos \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=17.0
+
+      - name: Compile full NES core
+        run: |
+          cmake --build build/ios-core-arm64 \
+            --config Release \
+            --target SMBIOSCoreObjects \
+            --parallel 4
