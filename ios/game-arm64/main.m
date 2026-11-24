@@ -8,6 +8,8 @@
 #import <SDL_main.h>
 
 extern int nesrecomp_host_entry(int argc, char **argv);
+extern void smb_touch_controls_start(void);
+extern void smb_touch_controls_stop(void);
 
 static int SDLCALL ios_game_main(int argc, char *argv[])
 {
@@ -22,6 +24,7 @@ static int SDLCALL ios_game_main(int argc, char *argv[])
         }
 
         SDL_SetMainReady();
+        smb_touch_controls_start();
 
         char *gameArgs[] = {
             (argc > 0 && argv && argv[0])
@@ -30,7 +33,9 @@ static int SDLCALL ios_game_main(int argc, char *argv[])
             NULL
         };
 
-        return nesrecomp_host_entry(2, gameArgs);
+        int result = nesrecomp_host_entry(2, gameArgs);
+        smb_touch_controls_stop();
+        return result;
     }
 }
 

@@ -70,6 +70,13 @@ target_link_libraries(SMBIOSGame PRIVATE SDL2::SDL2-static)
 set_source_files_properties("${CYC_DIR}/cyc_host.c"
     PROPERTIES COMPILE_DEFINITIONS "main=nesrecomp_host_entry")
 
+target_sources(SMBIOSGame PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/touch_controls.m"
+)
+set_source_files_properties(
+    "${CMAKE_CURRENT_SOURCE_DIR}/touch_controls.m"
+    PROPERTIES COMPILE_FLAGS "-fobjc-arc"
+)
 find_library(SMB_FOUNDATION Foundation REQUIRED)
 find_library(SMB_UIKIT UIKit REQUIRED)
 target_link_libraries(SMBIOSGame PRIVATE "${SMB_FOUNDATION}" "${SMB_UIKIT}")
