@@ -1,0 +1,57 @@
+name: iOS ARM64 SDL2 App Shell
+
+on:
+  push:
+    branches: [ios-port]
+    paths:
+      - 'ios/app-shell/**'
+      - '.github/workflows/ios-app-shell.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-app:
+    runs-on: macos-26
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Get SDL2 2.30.0
+        run: |
+          git clone --depth 1 --branch release-2.30.0 \
+            https://github.com/libsdl-org/SDL.git build/sdl2-source
+
+      - name: Configure iPhone app
+        run: |
+          cmake -S ios/app-shell -B build/ios-app-shell -G Xcode \
+            -DCMAKE_SYSTEM_NAME=iOS \
+            -DCMAKE_OSX_SYSROOT=iphoneos \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=17.0 \
+            -DSMB_SDL_SOURCE="$PWD/build/sdl2-source"
+
+      - name: Build unsigned app
+        run: |
+          cmake --build build/ios-app-shell --config Release \
+            --target SMBIOSApp --parallel 4
+
+      - name: Verify and package app
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="$(find build/ios-app-shell -type d -name SMBIOSApp.app -print -quit)"
+          test -n "$APP"
+          test -f "$APP/SMBIOSApp"
+          file "$APP/SMBIOSApp"
+          xcrun lipo -info "$APP/SMBIOSApp"
+          mkdir -p build/package
+          ditto -c -k --keepParent "$APP" build/package/SMBIOSApp-unsigned.zip
+
+      - name: Upload unsigned app
+        uses: actions/upload-artifact@v4
+        with:
+          name: SMBIOSApp-unsigned-arm64
+          path: build/package/SMBIOSApp-unsigned.zip
+          if-no-files-found: error
