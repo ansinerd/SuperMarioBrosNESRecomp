@@ -6,6 +6,7 @@
 #import <Foundation/Foundation.h>
 #import <SDL.h>
 #import <SDL_main.h>
+#include <unistd.h>
 
 extern int nesrecomp_host_entry(int argc, char **argv);
 extern void smb_touch_controls_start(void);
@@ -23,6 +24,24 @@ static int SDLCALL ios_game_main(int argc, char *argv[])
             return 2;
         }
 
+        /* Use writable Application Support for settings and diagnostics. */
+        NSURL *support = [[[NSFileManager defaultManager]
+            URLsForDirectory:NSApplicationSupportDirectory
+            inDomains:NSUserDomainMask] firstObject];
+
+        NSURL *gameData = [support URLByAppendingPathComponent:@"SMBIOSGame"
+            isDirectory:YES];
+
+        NSError *storageError = nil;
+        if (![[NSFileManager defaultManager]
+                createDirectoryAtURL:gameData
+                withIntermediateDirectories:YES
+                attributes:nil
+                error:&storageError] ||
+            chdir(gameData.fileSystemRepresentation) != 0) {
+            NSLog(@"Cannot initialize iOS game storage: %@", storageError);
+            return 3;
+        }
         SDL_SetMainReady();
         smb_touch_controls_start();
 

@@ -77,6 +77,16 @@ set_source_files_properties(
     "${CMAKE_CURRENT_SOURCE_DIR}/touch_controls.m"
     PROPERTIES COMPILE_FLAGS "-fobjc-arc"
 )
+# iOS-only writable save-state path.
+# Keep the original engine and Windows build unchanged.
+target_sources(SMBIOSGame PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/ios_storage.c"
+)
+
+set_source_files_properties("${CYC_DIR}/cyc_sdl.c"
+    PROPERTIES COMPILE_DEFINITIONS
+        "SDL_GetBasePath=smb_ios_writable_base_path"
+)
 find_library(SMB_FOUNDATION Foundation REQUIRED)
 find_library(SMB_UIKIT UIKit REQUIRED)
 target_link_libraries(SMBIOSGame PRIVATE "${SMB_FOUNDATION}" "${SMB_UIKIT}")
