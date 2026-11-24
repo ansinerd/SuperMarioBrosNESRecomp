@@ -1,0 +1,114 @@
+name: Private iOS Mario Game Link Test
+
+on:
+  push:
+    branches: [ios-port]
+    paths:
+      - 'ios/game-arm64/**'
+      - '.github/workflows/ios-game-private-link.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  ios-game-link:
+    # Only the repository owner pushing to this dedicated branch gets ROM input.
+    # Do not run this workflow against untrusted pull request code.
+    if: >-
+      github.repository == 'ansinerd/SuperMarioBrosNESRecomp' &&
+      github.actor == 'ansinerd' &&
+      github.ref == 'refs/heads/ios-port' &&
+      github.event_name == 'push'
+    runs-on: macos-26
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout pinned engine submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Get SDL2 2.30.0
+        shell: bash
+        run: |
+          git clone --depth 1 --branch release-2.30.0 \
+            https://github.com/libsdl-org/SDL.git build/sdl2-source
+
+      - name: Build native macOS NESRecomp compiler
+        shell: bash
+        run: |
+          cmake -S nesrecomp/recompiler -B build/host-recompiler \
+            -G 'Unix Makefiles' -DCMAKE_BUILD_TYPE=Release
+          cmake --build build/host-recompiler --parallel 4
+          test -x build/host-recompiler/NESRecomp
+
+      - name: Decode and verify private ROM in runner temp only
+        shell: bash
+        env:
+          SMB_ROM_ZIP_B64: ${{ secrets.SMB_ROM_ZIP_B64 }}
+        run: |
+          python3 - <<'PY'
+          import base64
+          import hashlib
+          import io
+          import os
+          from pathlib import Path
+          import zipfile
+
+          encoded = os.environ.get('SMB_ROM_ZIP_B64', '')
+          if not encoded:
+              raise SystemExit('SMB_ROM_ZIP_B64 repository secret is missing')
+          archive = base64.b64decode(encoded, validate=True)
+          with zipfile.ZipFile(io.BytesIO(archive)) as z:
+              files = [n for n in z.namelist() if n.lower().endswith('.nes')]
+              if len(files) != 1:
+                  raise SystemExit('Expected exactly one NES ROM in private ZIP')
+              data = z.read(files[0])
+          expected = '0b3d9e1f01ed1668205bab34d6c82b0e281456e137352e4f36a9b2cfa3b66dea'
+          if len(data) != 40976 or hashlib.sha256(data).hexdigest() != expected:
+              raise SystemExit('Private ROM does not match verified game input')
+          folder = Path(os.environ['RUNNER_TEMP']) / 'smb-ci-private'
+          folder.mkdir(mode=0o700, exist_ok=True)
+          path = folder / 'original.nes'
+          path.write_bytes(data)
+          path.chmod(0o600)
+          print('Private ROM verified. Its contents will not be printed or uploaded.')
+          PY
+
+      - name: Configure full iPhone game target
+        shell: bash
+        run: |
+          cmake -S ios/game-arm64 -B build/ios-game-arm64 -G Xcode \
+            -DCMAKE_SYSTEM_NAME=iOS \
+            -DCMAKE_OSX_SYSROOT=iphoneos \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=17.0 \
+            "-DSMB_SDL_SOURCE=$PWD/build/sdl2-source" \
+            "-DSMB_HOST_RECOMPILER=$PWD/build/host-recompiler/NESRecomp" \
+            "-DSMB_ROM=$RUNNER_TEMP/smb-ci-private/original.nes"
+
+      - name: Compile and link unsigned iOS game
+        shell: bash
+        run: |
+          cmake --build build/ios-game-arm64 \
+            --config Release --target SMBIOSGame --parallel 2
+
+      - name: Verify linked ARM64 application without publishing it
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="$(find build/ios-game-arm64 -type d -name SMBIOSGame.app -print -quit)"
+          test -n "$APP"
+          test -f "$APP/SMBIOSGame"
+          file "$APP/SMBIOSGame"
+          xcrun lipo -info "$APP/SMBIOSGame"
+          xcrun lipo -archs "$APP/SMBIOSGame" | grep -qw 'arm64'
+          echo 'Linked iOS ARM64 Mario app target successfully (not distributed)'
+
+      - name: Delete private ROM and derived outputs
+        if: always()
+        shell: bash
+        run: |
+          rm -rf "$RUNNER_TEMP/smb-ci-private"
+          rm -rf "$GITHUB_WORKSPACE/build/ios-game-arm64"
