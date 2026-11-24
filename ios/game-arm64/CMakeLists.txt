@@ -74,6 +74,12 @@ find_library(SMB_FOUNDATION Foundation REQUIRED)
 find_library(SMB_UIKIT UIKit REQUIRED)
 target_link_libraries(SMBIOSGame PRIVATE "${SMB_FOUNDATION}" "${SMB_UIKIT}")
 
+# Private build input: package the verified ROM as an app resource.
+# Never commit the ROM or publish the resulting app artifact.
+set_source_files_properties("${SMB_ROM}" PROPERTIES
+    MACOSX_PACKAGE_LOCATION "Resources")
+target_sources(SMBIOSGame PRIVATE "${SMB_ROM}")
+
 set_target_properties(SMBIOSGame PROPERTIES
     MACOSX_BUNDLE TRUE
     MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/Info.plist"
@@ -81,3 +87,4 @@ set_target_properties(SMBIOSGame PROPERTIES
     XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "1,2"
     XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED "NO"
 )
+
