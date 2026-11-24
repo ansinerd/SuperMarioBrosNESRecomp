@@ -104,6 +104,18 @@ jobs:
           file "$APP/SMBIOSGame"
           xcrun lipo -info "$APP/SMBIOSGame"
           xcrun lipo -archs "$APP/SMBIOSGame" | grep -qw 'arm64'
+          BUNDLED_ROM="$(find "$APP" -type f -name original.nes -print -quit)"
+          test -n "$BUNDLED_ROM"
+          ACTUAL="$(shasum -a 256 "$BUNDLED_ROM" | awk '{print $1}')"
+          EXPECTED="0b3d9e1f01ed1668205bab34d6c82b0e281456e137352e4f36a9b2cfa3b66dea"
+          test "$ACTUAL" = "$EXPECTED"
+          echo 'Bundled ROM resource verified.'
+          BUNDLED_ROM="$(find "$APP" -type f -name original.nes -print -quit)"
+          test -n "$BUNDLED_ROM"
+          ACTUAL="$(shasum -a 256 "$BUNDLED_ROM" | awk '{print $1}')"
+          EXPECTED="0b3d9e1f01ed1668205bab34d6c82b0e281456e137352e4f36a9b2cfa3b66dea"
+          test "$ACTUAL" = "$EXPECTED"
+          echo 'Bundled ROM resource verified.'
           echo 'Linked iOS ARM64 Mario app target successfully (not distributed)'
 
       - name: Delete private ROM and derived outputs

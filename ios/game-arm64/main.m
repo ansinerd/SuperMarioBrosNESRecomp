@@ -21,8 +21,6 @@ static int SDLCALL ios_game_main(int argc, char *argv[])
             return 2;
         }
 
-        /* Prefer Metal for SDL2 graphics presentation. */
-        SDL_SetHint(SDL_HINT_RENDER_DRIVER, "metal");
         SDL_SetMainReady();
 
         char *gameArgs[] = {
